@@ -1,13 +1,8 @@
-import {
-  Component,
-  effect,
-  resource,
-  ResourceStatus,
-  signal,
-} from '@angular/core';
+import { Component, ResourceStatus, signal } from '@angular/core';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { FormsModule } from '@angular/forms';
 import { API_URL, User } from './app.model';
+import { httpResource } from '@angular/common/http';
 
 @Component({
   selector: 'app-root',
@@ -21,16 +16,16 @@ import { API_URL, User } from './app.model';
     <mat-progress-bar mode="query" />
     } @if (users.status() === status.Error) {
     <span class="error">{{ users.error() }}</span>
-    <button>Retry</button>
     }
 
     <section class="actions">
-      <button>Add User</button>
-      <button>Clear</button>
+      <button (click)="users.reload()">Reload</button>
+      <button (click)="addUser()">Add User</button>
+      <button (click)="users.set([])">Clear</button>
     </section>
 
     <ul>
-      @for (user of users.value(); track user.id) {
+      @for (user of users.value(); track $index) {
       <li>{{ user.name }}</li>
       }@empty {
       <li class="no-data">Nothing to show</li>
@@ -40,23 +35,10 @@ import { API_URL, User } from './app.model';
 export class AppComponent {
   query = signal('');
   status = ResourceStatus;
-  users = resource<User[], { query: string }>({
-    request: () => ({ query: this.query() }),
-    loader: async ({ request, abortSignal }) => {
-      const response = await fetch(`${API_URL}?name_like=^${request.query}`, {
-        signal: abortSignal,
-      });
-      if (!response.ok) {
-        throw new Error('Network error');
-      }
-      return await response.json();
-    },
-  });
+  users = httpResource<User[]>(() => `${API_URL}?name_like=${this.query()}`);
 
-  constructor() {
-    effect(() => {
-      console.log('Status:', this.users.status());
-      console.log('Query:', this.query());
-    });
+  addUser() {
+    const user = { id: Date.now(), name: 'Richard Dadzie' };
+    this.users.update((users) => (users ? [user, ...users] : [user]));
   }
 }
